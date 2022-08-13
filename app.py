@@ -332,7 +332,7 @@ def show_artist(artist_id):
   # TODO: replace with real artist data from the artist table, using artist_id
   res = Artist.query.filter(Artist.id == artist_id).first()
 
-  past = db.session.query(Artist, Shows).join(Shows).filter(Shows.venue_id==res.id, Shows.start_time<=datetime.now().strftime("%Y-%m-%d %H:%M:%S")).all()
+  past = db.session.query(Artist, Shows).join(Shows).filter(Shows.artist_id==res.id, Shows.start_time<=datetime.now().strftime("%Y-%m-%d %H:%M:%S")).all()
   past_shows = []
     
   if past:
@@ -344,7 +344,7 @@ def show_artist(artist_id):
           "start_time": sh.start_time,
         }]
   
-  upcoming = db.session.query(Artist, Shows).join(Shows).filter(Shows.venue_id==res.id, Shows.start_time>=datetime.now().strftime("%Y-%m-%d %H:%M:%S")).all()
+  upcoming = db.session.query(Artist, Shows).join(Shows).filter(Shows.artist_id==res.id, Shows.start_time>=datetime.now().strftime("%Y-%m-%d %H:%M:%S")).all()
   upcoming_shows = []
     
   if upcoming:
@@ -364,7 +364,7 @@ def show_artist(artist_id):
     "phone": res.phone,
     "website": res.website_link,
     "facebook_link": res.facebook_link,
-    "seeking_talent": res.seeking_venue,
+    "seeking_venue": res.seeking_venue,
     "seeking_description": res.seeking_description,
     "image_link": res.image_link,
     "past_shows": past_shows,
@@ -388,7 +388,19 @@ def edit_artist(artist_id):
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
-
+  item = Artist.query.get(artist_id)
+  req = request.form
+  item.name = req['name']
+  item.phone = req['phone']
+  item.city = req['city']
+  item.state = req['state']
+  item.genres = req.getlist('genres')
+  item.facebook_link = req['facebook_link']
+  item.image_link = req['image_link']
+  item.website_link = req['website_link']
+  item.seeking_venue = bool(req.get('seeking_venue'))
+  item.seeking_description = req['seeking_description']
+  db.session.commit()
   return redirect(url_for('show_artist', artist_id=artist_id))
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
@@ -496,9 +508,20 @@ def create_shows():
 def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
   # TODO: insert form data as a new Show record in the db, instead
-
-  # on successful db insert, flash success
-  flash('Show was successfully listed!')
+  req = request.form
+  try:
+    newShow = Shows(venue_id = req['venue_id'],
+                artist_id = req['artist_id'], 
+                start_time = req['start_time'] )
+    db.session.add(newShow)
+    db.session.commit()
+    # on successful db insert, flash success
+    flash('Show was successfully listed!')
+  except:
+    db.session.rollback()
+    flash('An error occurred. Show could not be listed.')
+  finally:
+    db.session.close()
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Show could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
